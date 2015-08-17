@@ -1,8 +1,8 @@
 spawn-fcgi-watcher
 ===================
 
-1. 地址:
-		https://github.com/switch-st/spawn-fcgi-watcher.git
+1. 地址
+ * https://github.com/switch-st/spawn-fcgi-watcher.git
 
 2. 说明
  * 在spawn-fcgi的基础上增加监控功能，首次启动成功后，自动拉起之后退出的fcgi进程
@@ -13,12 +13,12 @@ spawn-fcgi-watcher
  * 欢迎补充。
 
 3. 编译
-		./autogen.sh
-		./configure [--prefix=/path/to/bin]
-		make && make install
+ * ./autogen.sh
+ * ./configure [--prefix=/path/to/bin]
+ * make && make install
 
 4. 调用
-	```
+	``` shell
 	switch@switch-pc:cgi-bin$ ./spawn-fcgi-watcher
 	Usage: spawn-fcgi [options] [-- <fcgiapp> [fcgi app arguments]]
 
