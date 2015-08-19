@@ -67,7 +67,8 @@ static int issetugid() {
 
 static pid_t* g_pPidArray = NULL;
 static int g_nPidNum = 0;
-static int g_nFlag = 0;
+static int g_nFlagChild = 0;
+static int g_nFlagStop = 0;
 static char* g_pFcgiApp = NULL;
 static char** g_ppFcgiAppArgv = { NULL };
 static int g_nFcgiFd = -1;
@@ -477,9 +478,14 @@ static void show_help () {
 	));
 }
 
-static void sig_hand(int s)
+static void sig_hand_child(int s)
 {
-	g_nFlag = 1;
+	g_nFlagChild = 1;
+}
+
+static void sig_hand_stop(int s)
+{
+	g_nFlagStop = 1;
 }
 
 static void* fcgi_spawn_watcher(void* arg)
@@ -494,13 +500,17 @@ static void* fcgi_spawn_watcher(void* arg)
 	{
 		return NULL;
 	}
-	while (1)
+	while (!g_nFlagStop)
 	{
-        while (!g_nFlag)
+		while (!g_nFlagChild && !g_nFlagStop)
 		{
 			sleep(1);
 		}
-		g_nFlag = 0;
+		if (g_nFlagStop)
+		{
+			break;
+		}
+		g_nFlagChild = 0;
 
 		memset(pidBuf, 0, g_nPidNum * 16);
 		while ((oldChild = waitpid(-1, NULL, WNOHANG)) > 0)
@@ -530,6 +540,24 @@ static void* fcgi_spawn_watcher(void* arg)
 		}
 	}
 	free(pidBuf);
+
+	for (i = 0; i < g_nPidNum; ++i)
+	{
+        kill(g_pPidArray[i], SIGTERM);
+	}
+	struct timeval tv = { 0, 100 * 1000 };
+	select(0, NULL, NULL, NULL, &tv);
+	for (i = 0; i < g_nPidNum; ++i)
+	{
+		if (waitpid(g_pPidArray[i], NULL, WNOHANG) != g_pPidArray[i])
+		{
+			fprintf(stderr, "spawn-fcgi: kill child process failed: PID: %d\n", g_pPidArray[i]);
+		}
+		else
+		{
+			fprintf(stdout, "spawn-fcgi: child stoped successfully: PID: %d\n", g_pPidArray[i]);
+		}
+	}
 }
 
 int main(int argc, char **argv) {
@@ -734,7 +762,10 @@ int main(int argc, char **argv) {
 	}
 
 	pthread_t trd;
-	signal(SIGCHLD, sig_hand);
+	signal(SIGCHLD, sig_hand_child);
+	signal(SIGINT, sig_hand_stop);
+	signal(SIGQUIT, sig_hand_stop);
+	signal(SIGTERM, sig_hand_stop);
 	if (pthread_create(&trd, NULL, fcgi_spawn_watcher, NULL) == 0)
 	{
 		while (pthread_join(trd, NULL)) {}
