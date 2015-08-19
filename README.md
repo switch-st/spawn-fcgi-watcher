@@ -9,6 +9,7 @@ spawn-fcgi-watcher
  * 基于spawn-fcgi 1.6.4开发
  * 程序启动线程，捕捉SIGCHLD信号，回收退出的fcgi子进程，并启动新的fcgi进程
  * 程序会将新的子进程PID写入pid文件
+ * 杀死watcher进程时，会杀死所有子进程
  * 
  * 欢迎补充。
 
