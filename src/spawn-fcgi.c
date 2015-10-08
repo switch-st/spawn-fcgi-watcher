@@ -77,6 +77,15 @@ static int g_nPidFd = -1;
 
 /// fcgi_app fcgi_app_argv fcgi_fd pid_fd child_count
 
+static const char* SignalName(int sig)
+{
+    static char* sig_map[] = {"NULL", "SIGHUP", "SIGINT", "SIGQUIT", "SIGILL", "SIGTRAP", "SIGABRT", "SIGBUS", "SIGFPE", \
+									"SIGKILL", "SIGUSR1", "SIGSEGV", "SIGUSR2", "SIGPIPE", "SIGALRM", "SIGTERM", "SIGSTKFLT", \
+									"SIGCHLD", "SIGCONT", "SIGSTOP", "SIGTSTP", "SIGTTIN", "SIGTTOU", "SIGURG", "SIGXCPU", \
+									"SIGXFSZ", "SIGVTALRM", "SIGPROF", "SIGWINCH", "SIGIO", "SIGPWR", "SIGSYS"};
+	return sig > 0 && sig < (int)sizeof(sig_map) ? sig_map[sig] : sig_map[0];
+}
+
 static mode_t read_umask(void) {
 	mode_t mask = umask(0);
 	umask(mask);
@@ -494,6 +503,7 @@ static void* fcgi_spawn_watcher(void* arg)
 	char* pidBuf;
 	int i;
 	int len;
+	int status;
 
 	pidBuf = malloc(g_nPidNum * 16);
 	if (!pidBuf)
@@ -513,9 +523,17 @@ static void* fcgi_spawn_watcher(void* arg)
 		g_nFlagChild = 0;
 
 		memset(pidBuf, 0, g_nPidNum * 16);
-		while ((oldChild = waitpid(-1, NULL, WNOHANG)) > 0)
+		while ((oldChild = waitpid(-1, &status, WNOHANG)) > 0)
 		{
-            if (fcgi_spawn_connection(g_pFcgiApp, g_ppFcgiAppArgv, g_nFcgiFd, 1, g_nChildCount, -1, 0, &newChild) != 0)
+			if (WIFSIGNALED(status) && WCOREDUMP(status))
+			{
+				fprintf(stderr, "spawn-fcgi: child process cored unusually: PID: %d, SIGNAL: %d(%s)\n", oldChild, WTERMSIG(status), SignalName(WTERMSIG(status)));
+			}
+			else
+			{
+				fprintf(stderr, "spawn-fcgi: child process exited unusually: PID: %d\n", oldChild);
+			}
+            if (fcgi_spawn_connection(g_pFcgiApp, g_ppFcgiAppArgv, g_nFcgiFd, 1, g_nChildCount, g_nPidFd, 0, &newChild) != 0)
 			{
 				continue;
 			}
@@ -535,9 +553,12 @@ static void* fcgi_spawn_watcher(void* arg)
 				len += sprintf(pidBuf + len, "%d\n", g_pPidArray[i]);
 			}
 			ftruncate(g_nPidFd, 0);
+			lseek(g_nPidFd, 0, SEEK_SET);
 			write_all(g_nPidFd, pidBuf, len);
 			fsync(g_nPidFd);
 		}
+		fflush(stdout);
+		fflush(stderr);
 	}
 	free(pidBuf);
 
@@ -558,6 +579,8 @@ static void* fcgi_spawn_watcher(void* arg)
 			fprintf(stdout, "spawn-fcgi: child stoped successfully: PID: %d\n", g_pPidArray[i]);
 		}
 	}
+
+	return NULL;
 }
 
 int main(int argc, char **argv) {
@@ -760,6 +783,8 @@ int main(int argc, char **argv) {
 		g_pPidArray = NULL;
 		return ret;
 	}
+	fflush(stdout);
+	fflush(stderr);
 
 	pthread_t trd;
 	signal(SIGCHLD, sig_hand_child);

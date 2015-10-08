@@ -8,9 +8,10 @@ spawn-fcgi-watcher
  * 在spawn-fcgi的基础上增加监控功能，首次启动成功后，自动拉起之后退出的fcgi进程
  * 基于spawn-fcgi 1.6.4开发
  * 程序启动线程，捕捉SIGCHLD信号，回收退出的fcgi子进程，并启动新的fcgi进程
+ * 子进程退出后会输出退出原因(打断子进程的信号)(输出结果包含**unusually**关键字)
  * 程序会将新的子进程PID写入pid文件
  * 杀死watcher进程时，会杀死所有子进程
- * 
+ *
  * 欢迎补充。
 
 3. 编译
@@ -53,9 +54,14 @@ spawn-fcgi-watcher
 	-G <group>     change Unix domain socket group to group-id
 	```
 
-5. 许可证
+5. 监控脚本
+	* script目录下是我在项目中使用的脚本，包括启动服务、停止服务、异常监控脚本。
+	* script/Monitor/WatcherMonitor.sh监控spawn-fcgi-watcher进程，随时拉起。
+	* script/Monitor/ProcMonitor.sh监控子进程异常退出，并发送邮件。
+
+6. 许可证
 	* 程序采用MIT许可证，并尊重原作者([**jan kneschke** && **stefan bühler**](./AUTHORS))许可证
     * 本程序[**许可证**](./LICENSE)，spawn-fcgi[**许可证**](./COPYING)
     * 如许可证有任何问题，请联系**switch**(switch.st@gmail.com)，我将及时更正
 
-6. write by [**switch**](switch.st@gmail.com)
+7. write by [**switch**](switch.st@gmail.com)
